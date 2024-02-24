@@ -1,12 +1,10 @@
-using USBtin;
-
 namespace Protocol;
 
 public static class Decoder
 {
-    public static void Decode(CanFrame frame)
+    public static void Decode(uint identifier, byte[] data)
     {
-        DecodeIdentifier(frame.Identifier);
+        DecodeIdentifier(identifier);
     }
 
     private static void DecodeIdentifier(uint identifier)

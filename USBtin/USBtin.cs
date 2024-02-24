@@ -160,7 +160,7 @@ public class USBtin
     public void TransmitExtended(uint identifier, byte[] data)
     {
         MustBe29BitsIdentifier(identifier);
-        Transmit("T", identifier, data);
+        Transmit("T", identifier, data, true);
     }
     
     public void TransmitStandardRtr(ushort identifier, byte dataLength)
@@ -172,7 +172,7 @@ public class USBtin
     public void TransmitExtendedRtr(uint identifier, byte dataLength)
     {
         MustBe29BitsIdentifier(identifier);
-        TransmitRtr("R", identifier, dataLength);
+        TransmitRtr("R", identifier, dataLength, true);
     }
 
     public CanFrame? ReadCanFrame()
@@ -258,23 +258,24 @@ public class USBtin
 
     private static byte ParseCharNum(char c) => (byte)(c - 48);
 
-    private void Transmit(string cmd, uint identifier, byte[] data)
+    private void Transmit(string cmd, uint identifier, byte[] data, bool extended = false)
     {
         if (data.Length > 8)
             throw new ArgumentException("max 8 data bytes", nameof(data));
         
-        WriteLine($"{cmd}{ToIdentifierString(identifier)}{data.Length}{Convert.ToHexString(data)}");
+        WriteLine($"{cmd}{ToIdentifierString(identifier, extended)}{data.Length}{Convert.ToHexString(data)}");
     }
     
-    private void TransmitRtr(string cmd, uint identifier, byte dataLength)
+    private void TransmitRtr(string cmd, uint identifier, byte dataLength, bool extended = false)
     {
         if (dataLength > 8)
             throw new ArgumentException("max 8 data bytes", nameof(dataLength));
         
-        WriteLine($"{cmd}{ToIdentifierString(identifier)}{dataLength}");
+        WriteLine($"{cmd}{ToIdentifierString(identifier, extended)}{dataLength}");
     }
     
-    private static string ToIdentifierString(uint identifier) => identifier > Max11BitsId ? $"{identifier:X8}" : $"{identifier:X3}";
+    private static string ToIdentifierString(uint identifier, bool extended) =>
+        extended ? $"{identifier:X8}" : $"{identifier:X3}";
 
     private static void MustBe11BitsIdentifier(ushort identifier)
     {
