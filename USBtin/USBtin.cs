@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.IO.Ports;
 
 namespace USBtin;
 
@@ -80,6 +79,9 @@ public class USBtin
        Mxxxxxxxx[CR] | Set acceptance filter code. SJA1000 format (AC0..AC3). Only first 11bit are relevant.
                      | xxxxxxxx: Acceptance filter code
      */
+
+    private const uint Max11BitsId = 0x7FF;
+    private const uint Max29BitsId = 0x1FFFFFFF;
     
     private readonly IUSBtinSerialPort _port;
     private readonly bool _loggingEnabled;
@@ -272,17 +274,17 @@ public class USBtin
         WriteLine($"{cmd}{ToIdentifierString(identifier)}{dataLength}");
     }
     
-    private string ToIdentifierString(uint identifier) => identifier > 0XFFF ? $"{identifier:X8}" : $"{identifier:X3}";
+    private static string ToIdentifierString(uint identifier) => identifier > Max11BitsId ? $"{identifier:X8}" : $"{identifier:X3}";
 
     private static void MustBe11BitsIdentifier(ushort identifier)
     {
-        if (identifier > 0x7FF)
+        if (identifier > Max11BitsId)
             throw new ArgumentException("must be 11 bits", nameof(identifier));
     }
 
     private static void MustBe29BitsIdentifier(uint identifier)
     {
-        if (identifier > 0x1FFFFFFF)
+        if (identifier > Max29BitsId)
             throw new ArgumentException("must be 29 bits", nameof(identifier));
     }
 
