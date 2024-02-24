@@ -81,18 +81,18 @@ public class USBtin
                      | xxxxxxxx: Acceptance filter code
      */
     
-    private readonly SerialPort _port;
+    private readonly IUSBtinSerialPort _port;
     private readonly bool _loggingEnabled;
     
     public USBtin(string portName, bool enableLogging = false)
     {
-        _port = new SerialPort(portName, 115200, Parity.None, 8, StopBits.One);
-        
-        _port.NewLine = "\r";
+        _port = new USBtinSerialPort(portName);
+        _loggingEnabled = enableLogging;
+    }
 
-        _port.WriteTimeout = 1000;
-        _port.ReadTimeout = 1000;
-
+    public USBtin(IUSBtinSerialPort port, bool enableLogging = false)
+    {
+        _port = port;
         _loggingEnabled = enableLogging;
     }
 
@@ -176,6 +176,7 @@ public class USBtin
     public CanFrame? ReadCanFrame()
     {
         var frame = ReadLine();
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         // smallest valid frame is riiil
         if (frame.Length < 5)
@@ -188,7 +189,8 @@ public class USBtin
             // tiiildd..
             return new CanFrame(uint.Parse(frame[1..4], NumberStyles.HexNumber),
                 ParseCharNum(frame[4]),
-                Convert.FromHexString(frame[5..]));
+                Convert.FromHexString(frame[5..]),
+                timestamp);
         }
         
         if (cmd == 'T')
@@ -196,7 +198,8 @@ public class USBtin
             // Tiiiiiiiildd..
             return new CanFrame(uint.Parse(frame[1..9], NumberStyles.HexNumber),
                 ParseCharNum(frame[9]),
-                Convert.FromHexString(frame[10..]));
+                Convert.FromHexString(frame[10..]),
+                timestamp);
         }
         
         if (cmd == 'r')
@@ -204,7 +207,8 @@ public class USBtin
             // riiil
             return new CanFrame(uint.Parse(frame[1..4], NumberStyles.HexNumber),
                 ParseCharNum(frame[4]),
-                null);
+                null,
+                timestamp);
         }
         
         if (cmd == 'R')
@@ -212,7 +216,8 @@ public class USBtin
             // Riiiiiiiil
             return new CanFrame(uint.Parse(frame[1..9], NumberStyles.HexNumber),
                 ParseCharNum(frame[9]),
-                null);
+                null,
+                timestamp);
         }
 
         return null;
@@ -223,7 +228,26 @@ public class USBtin
         return _port.BytesToRead > 1;
     }
 
-    private static byte ParseCharNum(char c) => (byte)(48 - c);
+    public async Task ListenAndLogFrames(Stream logStream, CancellationToken cancellationToken)
+    {
+        await using var log = new BinaryWriter(logStream);
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            var frame = ReadCanFrame();
+            if (frame is null)
+                continue;
+            
+            log.WriteFrame(frame);
+        }
+    }
+
+    public static IEnumerable<CanFrame> ReadFramesFromLog(Stream logStream)
+    {
+        using var log = new BinaryReader(logStream);
+        yield return log.ReadFrame();
+    }
+
+    private static byte ParseCharNum(char c) => (byte)(c - 48);
 
     private void Transmit(string cmd, uint identifier, byte[] data)
     {

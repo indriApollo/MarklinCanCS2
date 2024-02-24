@@ -1,6 +1,9 @@
 ﻿using USBtin;
 
-var usbTin = new USBtin.USBtin("/dev/tty.usbmodemA02173041", true);
+// linux: /dev/ttyACM0
+// macos: /dev/tty.usbmodemA02173041
+
+var usbTin = new USBtin.USBtin("/dev/ttyACM0", true);
 
 usbTin.Open();
 
