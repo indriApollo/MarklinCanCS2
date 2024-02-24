@@ -244,7 +244,14 @@ public class USBtin
     public static IEnumerable<CanFrame> ReadFramesFromLog(Stream logStream)
     {
         using var log = new BinaryReader(logStream);
-        yield return log.ReadFrame();
+        while (true)
+        {
+            var frame = log.ReadFrame();
+
+            if (frame is null)
+                yield break;
+            yield return frame;
+        }
     }
 
     private static byte ParseCharNum(char c) => (byte)(c - 48);
@@ -254,7 +261,7 @@ public class USBtin
         if (data.Length > 8)
             throw new ArgumentException("max 8 data bytes", nameof(data));
         
-        WriteLine($"{cmd}{identifier:X3}{data.Length}{Convert.ToHexString(data)}");
+        WriteLine($"{cmd}{ToIdentifierString(identifier)}{data.Length}{Convert.ToHexString(data)}");
     }
     
     private void TransmitRtr(string cmd, uint identifier, byte dataLength)
@@ -262,8 +269,10 @@ public class USBtin
         if (dataLength > 8)
             throw new ArgumentException("max 8 data bytes", nameof(dataLength));
         
-        WriteLine($"{cmd}{identifier:X3}{dataLength}");
+        WriteLine($"{cmd}{ToIdentifierString(identifier)}{dataLength}");
     }
+    
+    private string ToIdentifierString(uint identifier) => identifier > 0XFFF ? $"{identifier:X8}" : $"{identifier:X3}";
 
     private static void MustBe11BitsIdentifier(ushort identifier)
     {

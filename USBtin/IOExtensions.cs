@@ -14,8 +14,11 @@ public static class IOExtensions
         writer.Write(frame.Timestamp);
     }
 
-    public static CanFrame ReadFrame(this BinaryReader reader)
+    public static CanFrame? ReadFrame(this BinaryReader reader)
     {
+        if (reader.PeekChar() == -1)
+            return null;
+        
         var identifier = reader.ReadUInt32();
         var dataLength = reader.ReadByte();
         byte[]? data = null;
