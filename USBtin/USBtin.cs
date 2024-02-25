@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
+using System.Threading.Channels;
 
 namespace USBtin;
 
@@ -85,17 +87,40 @@ public class USBtin
     
     private readonly IUSBtinSerialPort _port;
     private readonly bool _loggingEnabled;
+
+    private readonly Action<string> _logger;
     
-    public USBtin(string portName, bool enableLogging = false)
+    public USBtin(string portName, int inputCapacity = 100, int outputCapacity = 100, bool enableLogging = false,
+        Action<string>? logger = null)
+        : this(new USBtinSerialPort(portName), inputCapacity, outputCapacity, enableLogging, logger)
     {
-        _port = new USBtinSerialPort(portName);
-        _loggingEnabled = enableLogging;
     }
 
-    public USBtin(IUSBtinSerialPort port, bool enableLogging = false)
+    public USBtin(IUSBtinSerialPort port, int inputCapacity = 100, int outputCapacity = 100, bool enableLogging = false,
+        Action<string>? logger = null)
     {
         _port = port;
         _loggingEnabled = enableLogging;
+        _logger = logger ?? Console.WriteLine;
+    }
+
+    public async IAsyncEnumerable<CanFrame> ListenAndReadFrames([EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            CanFrame? frame = null;
+            try
+            {
+                await WaitForDataToRead(TimeSpan.FromMilliseconds(100), cancellationToken);
+                frame = ReadCanFrame();
+            }
+            catch (TaskCanceledException)
+            {
+            }
+            
+            if (frame is not null)
+                yield return frame;
+        }
     }
 
     public void Open()
@@ -178,7 +203,6 @@ public class USBtin
     public CanFrame? ReadCanFrame()
     {
         var frame = ReadLine();
-        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         // smallest valid frame is riiil
         if (frame.Length < 5)
@@ -191,8 +215,7 @@ public class USBtin
             // tiiildd..
             return new CanFrame(uint.Parse(frame[1..4], NumberStyles.HexNumber),
                 ParseCharNum(frame[4]),
-                Convert.FromHexString(frame[5..]),
-                timestamp);
+                Convert.FromHexString(frame[5..]));
         }
         
         if (cmd == 'T')
@@ -200,8 +223,7 @@ public class USBtin
             // Tiiiiiiiildd..
             return new CanFrame(uint.Parse(frame[1..9], NumberStyles.HexNumber),
                 ParseCharNum(frame[9]),
-                Convert.FromHexString(frame[10..]),
-                timestamp);
+                Convert.FromHexString(frame[10..]));
         }
         
         if (cmd == 'r')
@@ -209,8 +231,7 @@ public class USBtin
             // riiil
             return new CanFrame(uint.Parse(frame[1..4], NumberStyles.HexNumber),
                 ParseCharNum(frame[4]),
-                null,
-                timestamp);
+                null);
         }
         
         if (cmd == 'R')
@@ -218,8 +239,7 @@ public class USBtin
             // Riiiiiiiil
             return new CanFrame(uint.Parse(frame[1..9], NumberStyles.HexNumber),
                 ParseCharNum(frame[9]),
-                null,
-                timestamp);
+                null);
         }
 
         return null;
@@ -227,19 +247,39 @@ public class USBtin
 
     public bool HasDataToRead()
     {
-        return _port.BytesToRead > 1;
+        return _port.BytesToRead > 0;
+    }
+    
+    public async ValueTask WaitForDataToRead(TimeSpan delay, CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            if (HasDataToRead())
+                return;
+
+            await Task.Delay(delay, cancellationToken);
+        }
     }
 
-    public async Task ListenAndLogFrames(Stream logStream, CancellationToken cancellationToken)
+    public async ValueTask ListenAndLogFrames(Stream logStream, CancellationToken cancellationToken)
     {
         await using var log = new BinaryWriter(logStream);
         while (!cancellationToken.IsCancellationRequested)
         {
-            var frame = ReadCanFrame();
-            if (frame is null)
-                continue;
-            
-            log.WriteFrame(frame);
+            try
+            {
+                await WaitForDataToRead(TimeSpan.FromMilliseconds(100), cancellationToken);
+
+                var frame = ReadCanFrame();
+
+                if (frame is null)
+                    continue;
+                
+                log.WriteFrame(frame);
+            }
+            catch (TaskCanceledException)
+            {
+            }
         }
     }
 
@@ -339,6 +379,6 @@ public class USBtin
     private void Log(string msg)
     {
         if (_loggingEnabled)
-            Console.WriteLine(msg);
+            _logger(msg);
     }
 }

@@ -11,7 +11,6 @@ public static class IOExtensions
         writer.Write(frame.DataLength);
         if (frame.Data is not null)
             writer.Write(frame.Data);
-        writer.Write(frame.Timestamp);
     }
 
     public static CanFrame? ReadFrame(this BinaryReader reader)
@@ -24,8 +23,7 @@ public static class IOExtensions
         byte[]? data = null;
         if (dataLength > 0)
             data = reader.ReadBytes(dataLength);
-        var timestamp = reader.ReadInt64();
         
-        return new CanFrame(identifier, dataLength, data, timestamp);
+        return new CanFrame(identifier, dataLength, data);
     }
 }
