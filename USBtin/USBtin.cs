@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
-using System.Threading.Channels;
 
 namespace USBtin;
 
@@ -90,13 +89,13 @@ public class USBtin
 
     private readonly Action<string> _logger;
     
-    public USBtin(string portName, int inputCapacity = 100, int outputCapacity = 100, bool enableLogging = false,
+    public USBtin(string portName, bool enableLogging = false,
         Action<string>? logger = null)
-        : this(new USBtinSerialPort(portName), inputCapacity, outputCapacity, enableLogging, logger)
+        : this(new USBtinSerialPort(portName), enableLogging, logger)
     {
     }
 
-    public USBtin(IUSBtinSerialPort port, int inputCapacity = 100, int outputCapacity = 100, bool enableLogging = false,
+    public USBtin(IUSBtinSerialPort port, bool enableLogging = false,
         Action<string>? logger = null)
     {
         _port = port;

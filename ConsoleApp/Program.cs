@@ -1,23 +1,25 @@
-﻿using USBtin;
+﻿using Protocol.Commands;
+using Protocol.Enums;
+using Protocol.Extensions;
+using USBtin;
 
 // linux: /dev/ttyACM0
 // macos: /dev/tty.usbmodemA02173041
 
-var usbTin = new USBtin.USBtin("/dev/ttyACM0", enableLogging: true);
+using var f = File.OpenRead("marklin.canlog");
+var readFramesFromLog = USBtin.USBtin.ReadFramesFromLog(f);
 
-usbTin.Open();
-
-usbTin.SetCanBaudRate(CanBaudRate.Br250K);
-
-usbTin.OpenLoopBackMode();
-
-for (byte i = 0; i < 100; i++)
-    usbTin.TransmitStandard(1, [i]);
-
-var frames = new List<CanFrame>();
-await foreach (var frame in usbTin.ListenAndReadFrames(new CancellationTokenSource(TimeSpan.FromSeconds(1)).Token))
+foreach (var frame in readFramesFromLog)
 {
-    frames.Add(frame);
+    var message = Protocol.Decoder.Decode(frame.Identifier, frame.Data ?? []);
+    
+    if (message.Uid != 24)
+        continue;
+    
+    if (message.Command != CommandType.LocomotiveSpeed)
+        continue;
+    
+    Console.WriteLine($"{frame.Identifier:X11} {frame.DataLength} {Convert.ToHexString(frame.Data ?? [])}");
+    Console.WriteLine($"cmd:{message.Command} addr:{message.Uid} sub:{Convert.ToHexString(message.CommandData)} {new LocomotiveSpeedCommand(message).Speed.ToSpeedLevel(14)}");
+    Console.WriteLine();
 }
-
-Console.WriteLine(frames.Count);

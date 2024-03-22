@@ -1,25 +1,45 @@
+using System.Buffers.Binary;
+using Protocol.Enums;
+
 namespace Protocol;
 
 public static class Decoder
 {
-    public static void Decode(uint identifier, byte[] data)
+    public static Message Decode(uint identifier, byte[] data)
     {
-        DecodeIdentifier(identifier);
+        // Extended CAN frame 29 bits identifier
+        // Priority | Command | Response |    Hash |    DLC | Data
+        //   4 bits |  8 bits |    1 bit | 16 bits | 4 bits | 0 to 8 bytes
+        
+        var message = new Message();
+        DecodeIdentifier(identifier, ref message);
+        DecodeUid(data, ref message);
+        DecodeCommandData(data, ref message);
+        
+        return message;
+    }
+    
+    private static void DecodeIdentifier(uint identifier, ref Message message)
+    {
+        message.Priority = (IdentifierPriorityType)((identifier & 0x1E000000) >> 25);
+        message.Command = (CommandType)((identifier & 0x1FE0000) >> 17);
+        message.Response = (byte)((identifier & 0x10000) >> 16);
+        message.Hash = (ushort)(identifier & 0xFFFF);
     }
 
-    private static void DecodeIdentifier(uint identifier)
+    private static void DecodeUid(ReadOnlySpan<byte> data, ref Message message)
     {
-        byte priority = (byte)(identifier & 0x1E000000);
-        byte command = (byte)(identifier & 0x1FE0000);
-        byte response = (byte)(identifier & 0x10000);
-        ushort hash = (ushort)(identifier & 0xFFFF);
-    }
-}
+        if (data.Length < 4)
+            return;
 
-public enum IdentifierPriority : byte
-{
-    StopGoShortCircuit = 1,
-    Ack = 2,
-    StopLoco = 3,
-    LocoAccessoryCommand = 4
+        message.Uid = BinaryPrimitives.ReadUInt32BigEndian(data[..4]);
+    }
+
+    private static void DecodeCommandData(ReadOnlySpan<byte> data, ref Message message)
+    {
+        if (data.Length < 5)
+            return;
+
+        message.CommandData = data[4..].ToArray();
+    }
 }

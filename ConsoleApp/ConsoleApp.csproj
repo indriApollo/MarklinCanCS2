@@ -8,6 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\Protocol\Protocol.csproj" />
       <ProjectReference Include="..\USBtin\USBtin.csproj" />
     </ItemGroup>
 
