@@ -25,7 +25,7 @@ public class SpeedExtensionsTests
     [InlineData(11, 28, 371)]
     [InlineData(11, 31, 331)]
     [InlineData(11, 126, 81)]
-    public void GivenSpeedLevel_WhenToSpeedLevel_ThenCorrectLevel(byte speedLevel, byte speedLevels, ushort expectedSystemSpeed)
+    public void GivenSpeedLevel_WhenToSystemSpeed_ThenCorrectSpeed(byte speedLevel, byte speedLevels, ushort expectedSystemSpeed)
     {
         var actual = speedLevel.ToSystemSpeed(speedLevels);
         Assert.Equal(expectedSystemSpeed, actual);
