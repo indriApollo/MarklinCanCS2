@@ -2,15 +2,16 @@ using Protocol.Enums;
 
 namespace Protocol.Commands;
 
-public abstract class Command
+public class Command(Message message)
 {
-    public readonly Message Message;
+    public readonly Message Message = message;
 
-    protected Command(Message message, CommandType commandType)
+    protected Command(Message message, CommandType commandType) : this(message)
     {
         if (message.Command != commandType)
             throw new ArgumentException($"Invalid command {message.Command}", nameof(message));
-
-        Message = message;
     }
+
+    public override string ToString() =>
+        $"cmd:{Enum.GetName(Message.Command)} resp:{Message.Response} uid:{Message.Uid}";
 }

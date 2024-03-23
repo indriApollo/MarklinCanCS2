@@ -1,7 +1,5 @@
 ﻿using Protocol.Commands;
 using Protocol.Enums;
-using Protocol.Extensions;
-using USBtin;
 
 // linux: /dev/ttyACM0
 // macos: /dev/tty.usbmodemA02173041
@@ -13,13 +11,19 @@ foreach (var frame in readFramesFromLog)
 {
     var message = Protocol.Decoder.Decode(frame.Identifier, frame.Data ?? []);
     
-    if (message.Uid != 24)
+    if (message.Command != CommandType.LocomotiveFunction)
         continue;
-    
-    if (message.Command != CommandType.LocomotiveSpeed)
-        continue;
-    
+
+    var msg = message.Command switch
+    {
+        CommandType.LocomotiveFunction => new LocomotiveFunctionCommand(message).ToString(),
+        CommandType.LocomotiveDirection => new LocomotiveDirectionCommand(message).ToString(),
+        CommandType.LocomotiveSpeed => new LocomotiveSpeedCommand(message, 14).ToString(),
+        CommandType.SystemCommand => new SystemCommand(message).ToString(),
+        _ => new Command(message).ToString()
+    };
+
     Console.WriteLine($"{frame.Identifier:X11} {frame.DataLength} {Convert.ToHexString(frame.Data ?? [])}");
-    Console.WriteLine($"cmd:{message.Command} addr:{message.Uid} sub:{Convert.ToHexString(message.CommandData)} {new LocomotiveSpeedCommand(message).Speed.ToSpeedLevel(14)}");
+    Console.WriteLine(msg);
     Console.WriteLine();
 }
